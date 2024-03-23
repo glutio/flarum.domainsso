@@ -2,71 +2,84 @@
 
 namespace Glutio\DomainSSO\Middleware;
 
+use Flarum\Forum\Controller\LogOutController;
 use Flarum\Foundation\Application;
 use Flarum\Foundation\Config;
 use Flarum\User\Guest;
 use Flarum\User\User;
 use Flarum\User\UserRepository;
 use Flarum\Http\AccessToken;
+use Flarum\Http\Middleware\AuthenticateWithSession;
 use Flarum\Http\RequestUtil;
 use Flarum\Http\SessionAccessToken;
 use Flarum\Http\SessionAuthenticator;
+use Flarum\Settings\SettingsRepositoryInterface;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Str;
 use Laminas\Diactoros\Response\RedirectResponse;
 use GuzzleHttp\Client;
-use Illuminate\Support\Arr;
 use Psr\Log\LoggerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-final class DomainSSOAuthLogin implements RequestHandlerInterface
+final class DomainSSOAuthLogin extends LogOutController
 {
-    private $app;
-    public function __construct(Application $app)
+    private $settings;
+    public function __construct(SettingsRepositoryInterface $settings)
     {
-        $this->app = $app;
+        $this->settings = $settings;
     }
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $url = $this->app->config("glutio-domainsso")["url"];
-        $login = $this->app->config("glutio-domainsso")["login"];
-        $loginUrl = $url.$login;
+        $prefix = DomainSSOAuthMiddleware::$prefix;
+        $url = $this->settings->get($prefix . ".url");
+        $login = $this->settings->get($prefix . ".login");
+        $redirect = $this->settings->get($prefix . ".redirect");
+        if (!empty($redirect)) {
+            $redirect = "?" . $redirect . "=" . $request->getHeaderLine('Referer');
+        }
+        $redirect = "?a=b";
+        $loginUrl = $url . $login . $redirect;
+        if (empty($loginUrl)) {
+            return parent::handle($request);
+        }
         return new RedirectResponse($loginUrl);
     }
 };
 
 final class DomainSSOAuthLogout implements RequestHandlerInterface
 {
-    private $app;
-    public function __construct(Application $app)
+    private $settings;
+    public function __construct(SettingsRepositoryInterface $settings)
     {
-        $this->app = $app;
+        $this->settings = $settings;
     }
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $url = $this->app->config("glutio-domainsso")["url"];
-        $logout = $this->app->config("glutio-domainsso")["logout"];
-        $logoutUrl = $url.$logout;
+        $prefix = DomainSSOAuthMiddleware::$prefix;
+        $url = $this->settings->get($prefix . ".url");
+        $logout = $this->settings->get($prefix . ".logout");
+        $logoutUrl = $url . $logout;    
         return new RedirectResponse($logoutUrl);
     }
 };
 
-final class DomainSSOAuthMiddleware implements MiddlewareInterface
+final class DomainSSOAuthMiddleware extends AuthenticateWithSession
 {
     private $users;
     private $auth;
     private $logger;
-    private $app;
+    private $settings;
+    static public $prefix = "glutio-domainsso";
 
-    public function __construct(UserRepository $users, SessionAuthenticator $auth, Application $app, LoggerInterface $logger)
+    public function __construct(UserRepository $users, SessionAuthenticator $auth, SettingsRepositoryInterface $settings, LoggerInterface $logger)
     {
         $this->logger = $logger;
         $this->users = $users;
         $this->auth = $auth;
-        $this->app = $app;
+        $this->settings = $settings;
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -76,13 +89,12 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
 
         // is $session ever null?
         $session = $request->getAttribute('session');
-
+        $actor = self::getActor($session, $request);
         if ($externalSession) {
             // find existing or create new user in Flarum
             $user = $this->getUser($externalSession);
 
             // get user associated with Flarum token or create new token
-            $actor = $this->getActor($session, $request);
             if ($actor && $actor->email != $user->email) {
                 $actor = null;
             }
@@ -95,17 +107,21 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
 
             $request = RequestUtil::withActor($request, $actor);
         } else {
-            // always logout 
-            $this->auth->logOut($session);
-
-            $request = RequestUtil::withActor($request, new Guest);
+            if ($actor && !$actor->isAdmin()) {
+                // always logout 
+                $this->auth->logOut($session);
+                $actor = new Guest();
+                $request = RequestUtil::withActor($request, $actor);
+            } else {
+                return parent::process($request, $handler);
+            }
         }
 
         return $handler->handle($request);
     }
 
     // based on from AuthenticateWithSession.php
-    private function getActor(Session $session, ServerRequestInterface $request)
+    public static function getActor(Session $session, ServerRequestInterface $request)
     {
         if ($session->has('access_token')) {
             $token = AccessToken::findValid($session->get('access_token'));
@@ -154,11 +170,10 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
             }
 
             // forward cookies to SSO
-            $config = $this->app->config("glutio-domainsso");
-            $url = $config["url"];
-            $sessionUrl = $config["session"];
-            $externalServiceUrl = $url.$sessionUrl;
-            $this->logger->info($externalServiceUrl);
+            $prefix = DomainSSOAuthMiddleware::$prefix;
+            $url = $this->settings->get($prefix . ".url");
+            $sessionUrl = $this->settings->get($prefix . ".session");
+            $externalServiceUrl = $url . $sessionUrl;
             $response = $client->request('GET', $externalServiceUrl, [
                 'headers' => [
                     'Cookie' => $cookieHeader
