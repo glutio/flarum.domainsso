@@ -2,6 +2,7 @@
 
 namespace Glutio\DomainSSO\Middleware;
 
+use Flarum\Foundation\Application;
 use Flarum\Foundation\Config;
 use Flarum\User\Guest;
 use Flarum\User\User;
@@ -23,32 +24,32 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 final class DomainSSOAuthLogin implements RequestHandlerInterface
 {
-    private $config;
-    public function __construct(Config $config)
+    private $app;
+    public function __construct(Application $app)
     {
-        $this->config = $config;
+        $this->app = $app;
     }
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $host = Arr::get($this->config, "glutio-domainsso.url");
-        $login = Arr::get($this->config, "glutio-domainsso.login");
-        $loginUrl = $host.$login;
+        $url = $this->app->config("glutio-domainsso")["url"];
+        $login = $this->app->config("glutio-domainsso")["login"];
+        $loginUrl = $url.$login;
         return new RedirectResponse($loginUrl);
     }
 };
 
 final class DomainSSOAuthLogout implements RequestHandlerInterface
 {
-    private $config;
-    public function __construct(Config $config)
+    private $app;
+    public function __construct(Application $app)
     {
-        $this->config = $config;
+        $this->app = $app;
     }
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $host = Arr::get($this->config, "glutio-domainsso.url");
-        $logout = Arr::get($this->config, "glutio-domainsso.logout");
-        $logoutUrl = $host.$logout;
+        $url = $this->app->config("glutio-domainsso")["url"];
+        $logout = $this->app->config("glutio-domainsso")["logout"];
+        $logoutUrl = $url.$logout;
         return new RedirectResponse($logoutUrl);
     }
 };

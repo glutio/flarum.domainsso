@@ -9,13 +9,11 @@ app.initializers.add('glutio-flarum-domainsso', app => {
     
     if (items.has('logIn')) {
       const config = JSON.parse(app.forum.attribute("glutio-domainsso"));
-      const logInButton = items.get('logIn');
-      const host = config.url;
-      const login = config.login;
       let redirect = config.redirect;
       redirect = redirect ? '?' + redirect + '=' + encodeURIComponent(window.location) : ''
-      const url = host + login + redirect;
+      const url = config.url + config.login + redirect;
 
+      const logInButton = items.get('logIn');
       logInButton.attrs.onclick = function() {
         window.location.href = url;
       };

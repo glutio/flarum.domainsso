@@ -15,7 +15,7 @@ use Illuminate\Support\Arr;
 use Psr\Http\Message\ServerRequestInterface;
 use Flarum\Foundation\Application;
 
-final class DomainSSOFrontetGlobal
+final class DomainSSOFrontendSettings
 {
   private $app;
   public function __construct(Application $app)
@@ -27,17 +27,8 @@ final class DomainSSOFrontetGlobal
   {
     $config = $this->app->config("glutio-domainsso");
     return json_encode($config);
-    // if ($config) {
-    //   $val = $config["url"];
-    //   $document->payload['glutio-domainsso.url'] = $val;
-    //   $val = $config["login"];
-    //   $document->payload['glutio-domainsso.login'] = $val;
-    //   $val = $config["redirect"];
-    //   $document->payload['glutio-domainsso.redirect'] = $val; 
-    // }
   }
 }
-
 
 return [
   (new Extend\Middleware('forum'))->replace(AuthenticateWithSession::class, Middleware\DomainSSOAuthMiddleware::class),
@@ -55,5 +46,5 @@ return [
   (new Extend\Routes('forum'))->get('/logout', 'logout', DomainSSOAuthLogout::class),
   (new Extend\Routes('forum'))->post('/global-logout', 'globalLogout', DomainSSOAuthLogout::class),
   (new Extend\Frontend('forum'))->js(__DIR__ . '/js/dist/forum.js'),
-  (new Extend\Settings)->serializeToForum("glutio-domainsso", "glutio-domainsso", DomainSSOFrontetGlobal::class)
+  (new Extend\Settings)->serializeToForum("glutio-domainsso", "glutio-domainsso", DomainSSOFrontendSettings::class)
 ];
