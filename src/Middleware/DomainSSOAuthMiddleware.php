@@ -2,6 +2,7 @@
 
 namespace Glutio\DomainSSO\Middleware;
 
+use Flarum\Foundation\Config;
 use Flarum\User\Guest;
 use Flarum\User\User;
 use Flarum\User\UserRepository;
@@ -11,35 +12,71 @@ use Flarum\Http\SessionAccessToken;
 use Flarum\Http\SessionAuthenticator;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Str;
+use Laminas\Diactoros\Response\RedirectResponse;
 use GuzzleHttp\Client;
+use Illuminate\Support\Arr;
 use Psr\Log\LoggerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
+final class DomainSSOAuthLogin implements RequestHandlerInterface
+{
+    private $config;
+    public function __construct(Config $config)
+    {
+        $this->config = $config;
+    }
+    public function handle(ServerRequestInterface $request): ResponseInterface
+    {
+        $host = Arr::get($this->config, "glutio-domainsso.url");
+        $login = Arr::get($this->config, "glutio-domainsso.login");
+        $loginUrl = $host.$login;
+        return new RedirectResponse($loginUrl);
+    }
+};
+
+final class DomainSSOAuthLogout implements RequestHandlerInterface
+{
+    private $config;
+    public function __construct(Config $config)
+    {
+        $this->config = $config;
+    }
+    public function handle(ServerRequestInterface $request): ResponseInterface
+    {
+        $host = Arr::get($this->config, "glutio-domainsso.url");
+        $logout = Arr::get($this->config, "glutio-domainsso.logout");
+        $logoutUrl = $host.$logout;
+        return new RedirectResponse($logoutUrl);
+    }
+};
+
 final class DomainSSOAuthMiddleware implements MiddlewareInterface
 {
     private $users;
     private $auth;
     private $logger;
+    private $config;
 
-    public function __construct(UserRepository $users, SessionAuthenticator $auth, LoggerInterface $logger)
+    public function __construct(UserRepository $users, SessionAuthenticator $auth, Config $config, LoggerInterface $logger)
     {
         $this->logger = $logger;
         $this->users = $users;
         $this->auth = $auth;
+        $this->config = $config;
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         // get the user info if logged in
         $externalSession = $this->getExternalSession($request);
-        
+
         // is $session ever null?
         $session = $request->getAttribute('session');
-        
-        if ($externalSession) {           
+
+        if ($externalSession) {
             // find existing or create new user in Flarum
             $user = $this->getUser($externalSession);
 
@@ -56,8 +93,7 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
             }
 
             $request = RequestUtil::withActor($request, $actor);
-        }
-        else {
+        } else {
             // always logout 
             $this->auth->logOut($session);
 
@@ -76,7 +112,7 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
                 $actor = $token->user;
                 $actor->updateLastSeen()->save();
                 $token->touch($request);
-                return $actor;    
+                return $actor;
             }
         }
 
@@ -90,7 +126,7 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
         $userName = isset($externalSession->user->name) ? $externalSession->user->name : null;
         $userAvatar = isset($externalSession->user->image) ? $externalSession->user->image : null;
         // find the existing or create new Flarum user
-        $user = $this->users->findByIdentification(['username' => $userName, 'email' => $userEmail ]);
+        $user = $this->users->findByIdentification(['username' => $userName, 'email' => $userEmail]);
         if (is_null($user)) {
             $randomString = Str::random(32);
             $user = User::register($userName, $userEmail, $randomString);
@@ -105,7 +141,7 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
     }
 
     private function getExternalSession(ServerRequestInterface $request)
-    {        
+    {
         $client = new Client();
         try {
             // rebuild cookie header from request cookies
@@ -116,7 +152,10 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
             }
 
             // forward cookies to SSO
-            $externalServiceUrl = "http://startprogramming.io/api/auth/session";
+            $host = Arr::get($this->config, "glutio-domainsso.url");
+            $sessionUrl = Arr::get($this->config, "glutio-domainsso.session");
+            $externalServiceUrl = $host.$sessionUrl;
+            $this->logger->info($externalServiceUrl);
             $response = $client->request('GET', $externalServiceUrl, [
                 'headers' => [
                     'Cookie' => $cookieHeader
@@ -127,8 +166,7 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
             $body = $response->getBody();
             $externalSession = json_decode($body);
             return isset($externalSession->user->email) ? $externalSession : null;
-        } 
-        catch (\GuzzleHttp\Exception\GuzzleException $e) {
+        } catch (\GuzzleHttp\Exception\GuzzleException $e) {
             $this->logger->error('Error calling external service: ' . $e->getMessage());
         }
 
