@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "name": "@glutio/flarum-domainsso",
+  "dependencies": {
+    "flarum-webpack-config": "^2.0.2"
+  },
+  "devDependencies": {
+    "flarum-tsconfig": "^1.0.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "scripts": {
+    "dev": "webpack --mode development --watch",
+    "build": "webpack --mode production"
+  }
+}
