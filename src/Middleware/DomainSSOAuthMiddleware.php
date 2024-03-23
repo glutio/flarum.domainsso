@@ -39,13 +39,12 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
         // is $session ever null?
         $session = $request->getAttribute('session');
         
-        if ($externalSession) {
-            // find existing or create new user in Flarum
-            $user = $this->getUser($externalSession);
-            
+        if ($externalSession) {           
             // get user associated with Flarum token or create new token
             $actor = $this->getActor($session, $request);
             if (!$actor) {
+                // find existing or create new user in Flarum
+                $user = $this->getUser($externalSession);
                 $token = SessionAccessToken::generate($user->id);
                 $this->auth->logIn($session, $token);
                 $actor = $user;
@@ -56,6 +55,7 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
         else {
             // always logout 
             $this->auth->logOut($session);
+
             $request = RequestUtil::withActor($request, new Guest);
         }
 
