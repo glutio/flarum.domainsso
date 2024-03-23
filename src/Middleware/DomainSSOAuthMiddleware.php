@@ -59,14 +59,14 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
     private $users;
     private $auth;
     private $logger;
-    private $config;
+    private $app;
 
-    public function __construct(UserRepository $users, SessionAuthenticator $auth, Config $config, LoggerInterface $logger)
+    public function __construct(UserRepository $users, SessionAuthenticator $auth, Application $app, LoggerInterface $logger)
     {
         $this->logger = $logger;
         $this->users = $users;
         $this->auth = $auth;
-        $this->config = $config;
+        $this->app = $app;
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -126,6 +126,7 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
         $userEmail = isset($externalSession->user->email) ? $externalSession->user->email : null;
         $userName = isset($externalSession->user->name) ? $externalSession->user->name : null;
         $userAvatar = isset($externalSession->user->image) ? $externalSession->user->image : null;
+
         // find the existing or create new Flarum user
         $user = $this->users->findByIdentification(['username' => $userName, 'email' => $userEmail]);
         if (is_null($user)) {
@@ -153,9 +154,10 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
             }
 
             // forward cookies to SSO
-            $host = Arr::get($this->config, "glutio-domainsso.url");
-            $sessionUrl = Arr::get($this->config, "glutio-domainsso.session");
-            $externalServiceUrl = $host.$sessionUrl;
+            $config = $this->app->config("glutio-domainsso");
+            $url = $config["url"];
+            $sessionUrl = $config["session"];
+            $externalServiceUrl = $url.$sessionUrl;
             $this->logger->info($externalServiceUrl);
             $response = $client->request('GET', $externalServiceUrl, [
                 'headers' => [
