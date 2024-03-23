@@ -1,0 +1,21 @@
+{
+    "autoload": {
+        "psr-4": {
+            "Glutio\\DomainSSO\\": "src/"
+        }
+    },
+    "name": "glutio/domainsso",
+    "type": "flarum-extension",
+    "version": "1.0.0",
+    "extra": {
+        "flarum-extension": {
+            "title": "DomainSSO",
+            "category": "feature",
+            "icon": {
+                "name": "fas fa-tags",
+                "backgroundColor": "#F28326",
+                "color": "#fff"
+            }
+        }
+    }
+}
