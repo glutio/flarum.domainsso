@@ -1,0 +1,19 @@
+glutio-domainsso:
+
+  ##
+  # UNIQUE KEYS - The following keys are used in only one location each.
+  ##
+
+  # Translations in this namespace are used by the admin interface.
+  admin:
+
+    # These translations are used in the Permissions page of the admin interface.
+    permissions:
+
+    # These translations are used in the Flags Settings modal dialog.
+    settings:
+      url_label: SSO base URL
+      login_label: Login endpoint
+      logout_label: Logout endpoint
+      session_label: Session endpoint
+      redirect_label: Redirect query parameter
