@@ -43,11 +43,15 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
             // find existing or create new user in Flarum
             $user = $this->getUser($externalSession);
             
-            // get token user
-            $actor = $this->getActor($user, $session, $request);
-            if ($actor) {
-                $request = RequestUtil::withActor($request, $actor);
+            // get user associated with Flarum token or create new token
+            $actor = $this->getActor($session, $request);
+            if (!$actor) {
+                $token = SessionAccessToken::generate($user->id);
+                $this->auth->logIn($session, $token);
+                $actor = $user;
             }
+       
+            $request = RequestUtil::withActor($request, $actor);
         }
         else {
             // always logout 
@@ -59,27 +63,16 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
     }
 
     // based on from AuthenticateWithSession.php
-    private function getActor(User $user, Session $session, ServerRequestInterface $request)
+    private function getActor(Session $session, ServerRequestInterface $request)
     {
-        $token = null;
-        $actor = null;
-        
         if ($session->has('access_token')) {
             $token = AccessToken::findValid($session->get('access_token'));
             if ($token) {
                 $actor = $token->user;
+                $actor->updateLastSeen()->save();
+                $token->touch($request);
+                return $actor;    
             }
-        }
-        else {
-            $token = SessionAccessToken::generate($user->id);
-            $this->auth->logIn($session, $token);
-            $actor = $user;
-        }
-
-        if ($actor && $token) {
-            $actor->updateLastSeen()->save();
-            $token->touch($request);
-            return $actor;    
         }
 
         return null;
