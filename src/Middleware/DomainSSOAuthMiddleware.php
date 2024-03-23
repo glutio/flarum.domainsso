@@ -40,16 +40,21 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
         $session = $request->getAttribute('session');
         
         if ($externalSession) {           
+            // find existing or create new user in Flarum
+            $user = $this->getUser($externalSession);
+
             // get user associated with Flarum token or create new token
             $actor = $this->getActor($session, $request);
+            if ($actor && $actor->email != $user->email) {
+                $actor = null;
+            }
+
             if (!$actor) {
-                // find existing or create new user in Flarum
-                $user = $this->getUser($externalSession);
                 $token = SessionAccessToken::generate($user->id);
                 $this->auth->logIn($session, $token);
                 $actor = $user;
             }
-       
+
             $request = RequestUtil::withActor($request, $actor);
         }
         else {
@@ -84,9 +89,8 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
         $userEmail = isset($externalSession->user->email) ? $externalSession->user->email : null;
         $userName = isset($externalSession->user->name) ? $externalSession->user->name : null;
         $userAvatar = isset($externalSession->user->image) ? $externalSession->user->image : null;
-        
         // find the existing or create new Flarum user
-        $user = $this->users->findByIdentification(['username' => $userName, 'email' => $userEmail]);
+        $user = $this->users->findByIdentification(['username' => $userName, 'email' => $userEmail ]);
         if (is_null($user)) {
             $randomString = Str::random(32);
             $user = User::register($userName, $userEmail, $randomString);
@@ -112,7 +116,7 @@ final class DomainSSOAuthMiddleware implements MiddlewareInterface
             }
 
             // forward cookies to SSO
-            $externalServiceUrl = "http://example.com/api/auth/session";
+            $externalServiceUrl = "http://startprogramming.io/api/auth/session";
             $response = $client->request('GET', $externalServiceUrl, [
                 'headers' => [
                     'Cookie' => $cookieHeader
