@@ -3,10 +3,17 @@
         "psr-4": {
             "Glutio\\DomainSSO\\": "src/"
         }
-    },
+    },    
     "name": "glutio/domainsso",
+    "description": "Flarum SSO using domain scoped cookies.",
     "type": "flarum-extension",
     "version": "1.0.0",
+    "keywords": [
+        "flarum",
+        "sso"
+    ],
+    "homepage": "https://github.com/glutio/flarum.domainsso",
+    "license": "MIT",
     "extra": {
         "flarum-extension": {
             "title": "DomainSSO",
