@@ -30,6 +30,7 @@ app.initializers.add(extensionName, app => {
           if (clicks == 1) {
             timeout = setTimeout(() => {
               if (clicks == 1) {
+                clicks = -100;
                 window.location.href = href;
               }
             }, 300);
