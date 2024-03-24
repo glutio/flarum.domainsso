@@ -12,8 +12,8 @@
             "title": "DomainSSO",
             "category": "feature",
             "icon": {
-                "name": "fas fa-tags",
-                "backgroundColor": "#F28326",
+                "name": "fas fa-user-lock",
+                "backgroundColor": "#555b51",
                 "color": "#fff"
             }
         }

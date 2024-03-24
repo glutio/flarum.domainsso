@@ -2,9 +2,6 @@
 
 namespace Glutio\DomainSSO\Middleware;
 
-use Flarum\Forum\Controller\LogOutController;
-use Flarum\Foundation\Application;
-use Flarum\Foundation\Config;
 use Flarum\User\Guest;
 use Flarum\User\User;
 use Flarum\User\UserRepository;
@@ -13,58 +10,87 @@ use Flarum\Http\Middleware\AuthenticateWithSession;
 use Flarum\Http\RequestUtil;
 use Flarum\Http\SessionAccessToken;
 use Flarum\Http\SessionAuthenticator;
+use Flarum\Http\UrlGenerator;
 use Flarum\Settings\SettingsRepositoryInterface;
+use Flarum\User\Event\LoggedOut;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Str;
 use Laminas\Diactoros\Response\RedirectResponse;
 use GuzzleHttp\Client;
+use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Log\LoggerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-final class DomainSSOAuthLogin extends LogOutController
-{
-    private $settings;
-    public function __construct(SettingsRepositoryInterface $settings)
-    {
-        $this->settings = $settings;
-    }
-    public function handle(ServerRequestInterface $request): ResponseInterface
-    {
-        $prefix = DomainSSOAuthMiddleware::$prefix;
-        $url = $this->settings->get($prefix . ".url");
-        $login = $this->settings->get($prefix . ".login");
-        $redirect = $this->settings->get($prefix . ".redirect");
-        if (!empty($redirect)) {
-            $redirect = "?" . $redirect . "=" . $request->getHeaderLine('Referer');
-        }
-        $redirect = "?a=b";
-        $loginUrl = $url . $login . $redirect;
-        if (empty($loginUrl)) {
-            return parent::handle($request);
-        }
-        return new RedirectResponse($loginUrl);
-    }
-};
+// final class DomainSSOAuthLogin extends LogInController
+// {
+//     private $settings;
+//     public function __construct(SettingsRepositoryInterface $settings)
+//     {
+//         $this->settings = $settings;
+//     }
+//     public function handle(ServerRequestInterface $request): ResponseInterface
+//     {
+//         $prefix = DomainSSOAuthMiddleware::$prefix;
+//         $url = $this->settings->get($prefix . ".url");
+//         $login = $this->settings->get($prefix . ".login");
+//         $redirect = $this->settings->get($prefix . ".redirect");
+//         if (!empty($redirect)) {
+//             $redirect = "?" . $redirect . "=" . $request->getHeaderLine('Referer');
+//         }
+//         $loginUrl = $url . $login . $redirect;
+//         if (empty($loginUrl)) {
+//             return parent::handle($request);
+//         }
+//         return new RedirectResponse($loginUrl);
+//     }
+// };
 
 final class DomainSSOAuthLogout implements RequestHandlerInterface
 {
     private $settings;
-    public function __construct(SettingsRepositoryInterface $settings)
+    private $generator;
+    private $auth;
+    private $events;
+    public function __construct(SettingsRepositoryInterface $settings, UrlGenerator $generator, SessionAuthenticator $auth, Dispatcher $events)
     {
         $this->settings = $settings;
+        $this->generator = $generator;
+        $this->auth = $auth;
+        $this->events = $events;
     }
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $prefix = DomainSSOAuthMiddleware::$prefix;
         $url = $this->settings->get($prefix . ".url");
         $logout = $this->settings->get($prefix . ".logout");
-        $logoutUrl = $url . $logout;    
+        $logoutUrl = $url . $logout;
+        $redirect = $this->settings->get($prefix . ".redirect");
+        $baseUrl = $this->generator->to('forum')->base();
+        if ($redirect) {
+            $redirect = "?" . $redirect . "=" . urlencode($baseUrl);
+            $logoutUrl .= $redirect;
+        }
+
+        $this->logOut($request);
+        if (empty($logoutUrl)) {
+            $logout = $baseUrl;
+        }
+
         return new RedirectResponse($logoutUrl);
     }
-};
+
+    public function logOut(ServerRequestInterface $request)
+    {
+        $session = $request->getAttribute('session');
+        $actor = RequestUtil::getActor($request);
+        $this->auth->logOut($session);    
+        if ($actor) {
+            $this->events->dispatch(new LoggedOut($actor, false));
+        }
+    }
+}
 
 final class DomainSSOAuthMiddleware extends AuthenticateWithSession
 {
@@ -107,9 +133,11 @@ final class DomainSSOAuthMiddleware extends AuthenticateWithSession
 
             $request = RequestUtil::withActor($request, $actor);
         } else {
-            if ($actor && !$actor->isAdmin()) {
-                // always logout 
+            if ($actor && !$actor->isAdmin() && !$actor->isGuest()) {
                 $this->auth->logOut($session);
+                $accessToken = $session->get('access_token');
+                $actor->accessTokens()->where('token', $accessToken)->delete();
+
                 $actor = new Guest();
                 $request = RequestUtil::withActor($request, $actor);
             } else {

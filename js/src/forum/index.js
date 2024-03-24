@@ -3,6 +3,7 @@ import HeaderSecondary from 'flarum/components/HeaderSecondary';
 import SettingsPage from 'flarum/components/SettingsPage'
 import UserPage from 'flarum/components/UserPage'
 import AvatarEditor from 'flarum/components/AvatarEditor'
+import LogInModal from 'flarum/components/LogInModal'
 
 const extensionName = 'glutio-domainsso'
 let clicks = 0;
@@ -27,11 +28,9 @@ app.initializers.add(extensionName, app => {
         logInButton.attrs.onclick = () => {          
           clicks++;
           console.log('clicks ', clicks)
-          if (clicks === 1) {
+          if (clicks == 1) {
             timeout = setTimeout(() => {
               if (clicks == 1) {
-                clearTimeout(timeout);
-                clicks = 0;
                 window.location.href = href;
               }
             }, 300);
@@ -43,6 +42,24 @@ app.initializers.add(extensionName, app => {
         };
       }
     }
+    extend(LogInModal.prototype, "title", function (title) {
+      title[0] = "Admin " + app.translator.trans('core.forum.log_in.title');
+    });
+    extend(LogInModal.prototype, "content", function (content) {
+      if (content.length > 1) {
+        content.pop();
+      }
+    });
+
+    // extend(LogInModal.prototype, "footer", function (footer) {
+    //   footer.children = [];
+    // });
+
+    extend(LogInModal.prototype, "fields", function (items) {
+      if (items.has('remember')) {
+        items.remove('remember');
+      }
+    });
 
     extend(SettingsPage.prototype, 'settingsItems', function (items) {
       if (items.has('account')) {
