@@ -10,6 +10,8 @@ Example:
 
 #### Double-clicking `Log In` on the Flarum site pops up a login dialog for local Flarum admin to login to setup or fix the extension's settings.
 
+Install using `composer require glutio/domainsso:*`.
+
 Initially the the extension is implemented to work with NextAuth.js and expects the session JSON to have a user property:
 ```
 {
