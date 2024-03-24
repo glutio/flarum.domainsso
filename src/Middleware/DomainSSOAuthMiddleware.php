@@ -111,9 +111,6 @@ final class DomainSSOAuthMiddleware extends AuthenticateWithSession
         } else {
             if ($actor && !$actor->isAdmin() && !$actor->isGuest()) {
                 $this->auth->logOut($session);
-                $accessToken = $session->get('access_token');
-                $actor->accessTokens()->where('token', $accessToken)->delete();
-
                 $actor = new Guest();
                 $request = RequestUtil::withActor($request, $actor);
             } else {
