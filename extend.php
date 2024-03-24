@@ -5,7 +5,6 @@ namespace Glutio\DomainSSO;
 use Flarum\Extend;
 use Flarum\Http\Middleware\AuthenticateWithHeader;
 use Flarum\Http\Middleware\AuthenticateWithSession;
-use Glutio\DomainSSO\Middleware\DomainSSOAuthLogin;
 use Glutio\DomainSSO\Middleware\DomainSSOAuthLogout;
 
 return [

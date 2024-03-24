@@ -27,7 +27,6 @@ app.initializers.add(extensionName, app => {
         const oldClick = logInButton.attrs.onclick;
         logInButton.attrs.onclick = () => {          
           clicks++;
-          console.log('clicks ', clicks)
           if (clicks == 1) {
             timeout = setTimeout(() => {
               if (clicks == 1) {
@@ -50,10 +49,6 @@ app.initializers.add(extensionName, app => {
         content.pop();
       }
     });
-
-    // extend(LogInModal.prototype, "footer", function (footer) {
-    //   footer.children = [];
-    // });
 
     extend(LogInModal.prototype, "fields", function (items) {
       if (items.has('remember')) {

@@ -23,30 +23,6 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-// final class DomainSSOAuthLogin extends LogInController
-// {
-//     private $settings;
-//     public function __construct(SettingsRepositoryInterface $settings)
-//     {
-//         $this->settings = $settings;
-//     }
-//     public function handle(ServerRequestInterface $request): ResponseInterface
-//     {
-//         $prefix = DomainSSOAuthMiddleware::$prefix;
-//         $url = $this->settings->get($prefix . ".url");
-//         $login = $this->settings->get($prefix . ".login");
-//         $redirect = $this->settings->get($prefix . ".redirect");
-//         if (!empty($redirect)) {
-//             $redirect = "?" . $redirect . "=" . $request->getHeaderLine('Referer');
-//         }
-//         $loginUrl = $url . $login . $redirect;
-//         if (empty($loginUrl)) {
-//             return parent::handle($request);
-//         }
-//         return new RedirectResponse($loginUrl);
-//     }
-// };
-
 final class DomainSSOAuthLogout implements RequestHandlerInterface
 {
     private $settings;
