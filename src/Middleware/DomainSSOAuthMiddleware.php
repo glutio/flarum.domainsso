@@ -91,7 +91,7 @@ final class DomainSSOAuthMiddleware extends AuthenticateWithSession
 
         // is $session ever null?
         $session = $request->getAttribute('session');
-        $actor = self::getActor($session, $request);
+        $actor = $this->getActor($session, $request);
         if ($externalSession) {
             // find existing or create new user in Flarum
             $user = $this->getUser($externalSession);
@@ -125,7 +125,7 @@ final class DomainSSOAuthMiddleware extends AuthenticateWithSession
     }
 
     // based on from AuthenticateWithSession.php
-    public static function getActor(Session $session, ServerRequestInterface $request)
+    public function getActor(Session $session, ServerRequestInterface $request)
     {
         if ($session->has('access_token')) {
             $token = AccessToken::findValid($session->get('access_token'));
