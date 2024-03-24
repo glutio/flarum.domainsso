@@ -143,9 +143,9 @@ final class DomainSSOAuthMiddleware extends AuthenticateWithSession
         $userEmail = isset($externalSession->user->email) ? $externalSession->user->email : null;
         $userName = isset($externalSession->user->name) ? $externalSession->user->name : null;
         $userAvatar = isset($externalSession->user->image) ? $externalSession->user->image : null;
-
+        
         // find the existing or create new Flarum user
-        $user = $this->users->findByIdentification(['username' => $userName, 'email' => $userEmail]);
+        $user = $this->users->findByEmail($userEmail);
         if (is_null($user)) {
             $randomString = Str::random(32);
             $user = User::register($userName, $userEmail, $randomString);
